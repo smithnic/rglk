@@ -22,7 +22,7 @@ WINDOW* mainwin;
 #endif
 
 static const int SLEEPTIME_MS = 500;
-char inputWaiter();
+unsigned char inputWaiter();
 void draw(string bg);
 void sysSleep(int ms);
 

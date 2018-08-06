@@ -4,7 +4,8 @@
 #include "Areas.hpp"
 using namespace std;
 
-char inputWaiter() {
+// This function will hang until there is a character input to return
+unsigned char inputWaiter() {
 #ifdef _WIN32
   while (!kbhit());
   char c = getch();
@@ -25,6 +26,17 @@ void sysSleep(int ms) {
 #endif
 }
 
+void sysClear() {
+#ifdef _WIN32
+  system("cls");
+#endif
+#ifdef __linux__
+  clear();
+  refresh();
+#endif
+}
+
+// Adds a character into our string based map model and returns the result
 string Rglk::addChar(char tile, int r, int c, string bg) {
   int pos = r * MAX_C + c;
   if (pos >= bg.length() || pos < 0) return bg;
@@ -32,10 +44,12 @@ string Rglk::addChar(char tile, int r, int c, string bg) {
   return result; 
 }
 
+// Add the player at the given position
 string Rglk::addP(int r, int c, string bg) {
   return Rglk::addChar('&', r, c, bg);
 }
 
+// Add an enemy at the current position
 string Rglk::addEnemy(int r, int c, string bg) {
   return Rglk::addChar('$', r, c, bg);
 }
@@ -48,6 +62,7 @@ void Rglk::setState(State s) {
   state = s;
 } 
 
+// Big switch for input while playing the game 
 void Rglk::action(char c) {
   char cl = tolower(c, locale());
   switch (cl) {
@@ -108,7 +123,6 @@ void Rglk::action(char c) {
       state = MENU;
       // skip enemy actions here
       return;
-    //TODO add more cases
     default:
       break;
   }
@@ -117,6 +131,7 @@ void Rglk::action(char c) {
   enemyActions();
 }
 
+// Switch for input in the pause menu 
 void Rglk::menuAction(char c) {
   char cl = tolower(c, locale());
   switch (cl) {
@@ -128,6 +143,7 @@ void Rglk::menuAction(char c) {
   }
 }
 
+// Remove an item from the map at the given position
 void Rglk::removeItem(int r, int c) {
   for (int i = 0; i < items.size(); i++) {
     if (items[i].getR() == r && items[i].getC() == c) {
@@ -136,17 +152,19 @@ void Rglk::removeItem(int r, int c) {
   }
 }
 
-
-
+// Return the Item at the given position
 Item Rglk::getItem(int r, int c) {
   for (Item& i: items) {
     if (i.getR() == r && i.getC() == c) {
       return i;
     }
   }
-  // TODO throw an exception?  
+  // If we got here there is no item
+  //TODO Might want to change this to an exception or return some NoItem type
 }
 
+// Control enemy actions. Loop through each enemy and determine their movement
+// and attacks. Break this down in the future
 void Rglk::enemyActions() {
   for (Enemy& e: enemies) {
     if (e.isAggro()) {
@@ -243,6 +261,7 @@ void Rglk::enemyActions() {
   }
 }
 
+// Use the players laser attack. Directions in "ilkj" == North East South West
 void Rglk::laser(char direction) {
   // Make the display with the laser
   int curY = p.getR();
@@ -341,6 +360,7 @@ void Rglk::laser(char direction) {
   }
 }
 
+// Enemy cloud attack. Creates a diamond cloud around the enemy
 void Rglk::enemyAttack(int r, int c, int range, int power, string name) {
   int curR;
   int curC;
@@ -388,6 +408,7 @@ Rglk::Rglk() {
       items = vector<Item>();
 }
 
+// Return a string representing the current map (attacks are done elsewhere)
 string Rglk::display() {
   if (state == GAME) {
     string s = addP(p.getR(), p.getC(), curArea.background());
@@ -409,20 +430,27 @@ string Rglk::display() {
     else if (powerString.length() == 2) powerString = " " + powerString;
     if (rangeString.length() == 1) rangeString = "  " + rangeString;
     else if (rangeString.length() == 2) rangeString = " " + rangeString;
-    return string(38, '*') + "MENU" + string(38, '*')
+    string result = string(38, '*') + "MENU" + string(38, '*')
       + "*** HEALTH: " + healthString + " " + string(64, '*')
       + "*** POWER:  " + powerString + " " + string(64, '*')
       + "*** RANGE:  " + rangeString + " " + string(64, '*')
       + string(320, '*');
+    int requiredLength = MAX_R * MAX_C;
+    result.insert(result.length(), requiredLength - result.length(), ' ');
+    return result;
   }
   else if (state == GAMEOVER) {
-    return string(80, '*')
+    string result =  string(80, '*')
       + "*** GAME OVER " + string(66, '*')
       + "*** Press 'n' to restart " + string(55, '*')
       + string(400, '*');
+    int requiredLength = MAX_R * MAX_C;
+    result.insert(result.length(), requiredLength - result.length(), ' ');
+    return result;
   }
 }
 
+// Determine if a player/enemy exists at the given coords
 bool Rglk::entityPresent(int r, int c) {
   if (p.getR() == r && p.getC() == c) return true;
   for (Enemy& e: enemies) {
@@ -431,6 +459,7 @@ bool Rglk::entityPresent(int r, int c) {
   return false;
 }
 
+// Determine if an item exists at the given coords
 bool Rglk::itemPresent(int r, int c) {
   for (Item& i: items) {
     if (i.getR() == r && i.getC() == c) return true;
@@ -438,6 +467,7 @@ bool Rglk::itemPresent(int r, int c) {
   return false;
 }
 
+// Prints a message at the top of the console
 void Rglk::message(string msg) {
 #ifdef _WIN32
   HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -457,22 +487,33 @@ void Rglk::message(string msg) {
 
 void draw(string bg) {
 #ifdef __linux__
-  clear();
+  sysClear();
 #endif
 #ifdef _WIN32
   HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
   COORD coord;
   coord.X = 0;
   coord.Y = 3;
-  if (!SetConsoleCursorPosition(hConsole, coord)) exit(1);
-  cout << bg;
+  if (!SetConsoleCursorPosition(hConsole, coord)) {
+      // Something with the Windows console went wrong
+      cerr << "The console host has stopped working, terminating..." << endl;
+      exit(1);
+  }
+  for (int i = 0; i < (MAX_R - 1) * 80; i+=80) {
+    cout << bg.substr(i, 80) << endl; 
+  }
 #endif
 #ifdef __linux__
-  printw(bg.c_str());
+  for (int i = 0; i < (MAX_R - 1) * 80; i+=80) {
+    string line = bg.substr(i, 80);
+    line += "\n";
+    printw(line.c_str()); 
+  }
   refresh();
 #endif
 }
 
+// Main game loop
 int main(int argc, char* argv[]) {
   // Seed random numbers
   srand(time(NULL));
@@ -480,15 +521,10 @@ int main(int argc, char* argv[]) {
   mainwin = initscr();
 #endif
   Rglk rglk = Rglk(); 
-  char buf;
-#ifdef _WIN32
-  system("cls");
-#endif
-#ifdef __linux__
-  clear();
-  refresh();
-#endif
+  unsigned char buf;
+  sysClear();
   while (true) {
+    sysClear(); 
     draw(rglk.display());
     buf = inputWaiter();
     if (buf == '0') {
@@ -501,6 +537,10 @@ int main(int argc, char* argv[]) {
 #endif
       break;
     }
+#ifdef __linux__
+    // Ignore extended characters spit out by resizing window
+    else if (buf == 154) continue;
+#endif
     if (rglk.getState() == GAME) {
       rglk.action(buf);
     }
